@@ -35,8 +35,7 @@ Reigns is a swipe-driven monarchy sim built around constant decisions. Each card
 3. Close the game.
 4. Copy `Tolk.dll` and `nvdaControllerClient64.dll` into the **game root folder** (the same folder as `Reigns.exe`).
 5. Copy `ReignsAccess.dll` into `BepInEx/plugins/`.
-6. Copy the `Lang` folder contents into `BepInEx/plugins/ReignsAccess_Lang/`.
-7. Launch the game again and wait for the “mod loaded” announcement.
+6. Launch the game again and wait for the “mod loaded” announcement.
 
 ## Quick start
 - Launch Reigns and start a new game or continue.

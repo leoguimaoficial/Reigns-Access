@@ -20,9 +20,9 @@ Reigns is a swipe-driven monarchy sim built around constant decisions. Each card
 
 ## Requirements
 - Reigns (PC, Steam).
-- BepInEx 5.x installed in the game folder.
 - `Tolk.dll` available to the game process.
 - `nvdaControllerClient64.dll` available to the game process.
+- BepInEx 5.x (only if you use the standard package without bundled BepInEx).
 
 ## Links
 - [Reigns on Steam](https://store.steampowered.com/app/474750/Reigns/)
@@ -30,12 +30,31 @@ Reigns is a swipe-driven monarchy sim built around constant decisions. Each card
 - [BepInEx installation guide](https://docs.bepinex.dev/articles/user_guide/installation/index.html)
 
 ## Installation
+
+### First-time install (bundle with BepInEx)
+Use this if you downloaded the release `.zip` that already includes BepInEx.
+
+1. Extract the `.zip`.
+2. Open the extracted folder.
+3. Copy **all files and folders** from it to the Reigns **game root folder** (the same folder as `Reigns.exe`).
+4. Launch the game and wait for the “mod loaded” announcement.
+
+### First-time install (standard package, no bundled BepInEx)
+Use this if you downloaded the standard release `.zip`.
+
 1. Install BepInEx 5.x into the Reigns game folder.
 2. Launch the game once with **no mods installed** so BepInEx can create its folders (like `BepInEx/plugins/`).
 3. Close the game.
 4. Copy `Tolk.dll` and `nvdaControllerClient64.dll` into the **game root folder** (the same folder as `Reigns.exe`).
 5. Copy `ReignsAccess.dll` into `BepInEx/plugins/`.
 6. Launch the game again and wait for the “mod loaded” announcement.
+
+### Updating to future versions
+If Reigns Access is already installed and working, future updates only require replacing:
+
+- `BepInEx/plugins/ReignsAccess.dll`
+
+After replacing the DLL, launch the game normally.
 
 ## Quick start
 - Launch Reigns and start a new game or continue.

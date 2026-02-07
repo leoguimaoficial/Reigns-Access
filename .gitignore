@@ -1,0 +1,44 @@
+﻿# Build outputs
+bin/
+obj/
+**/bin/
+**/obj/
+[Bb]uild/
+[Dd]ebug/
+[Rr]elease/
+
+# Test results
+[Tt]est[Rr]esult*/
+*.trx
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.VC.db
+*.VC.VC.opendb
+
+# Rider / JetBrains
+.idea/
+*.sln.iml
+
+# VS Code
+.vscode/
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+# Packages restored via PackageReference are stored in the global-packages folder
+
+# Logs
+*.log
+
+# OS / misc
+.DS_Store
+Thumbs.db
+
+# BepInEx runtime folders (generated)
+BepInEx/

@@ -1,9 +1,16 @@
 ﻿# Reigns Access
 
-Reigns Access is an accessibility mod for the PC version of **Reigns**. It adds screen reader output and complete keyboard navigation so blind and low-vision players can play the game start to finish.
+Reigns Access is an accessibility mod for the PC version of **Reigns**. It adds screen reader output and complete keyboard navigation so blind players can play the game start to finish.
 
 ## Game description (from the Steam store page)
-Reigns puts you on the throne as a medieval monarch of the modern age. Each card is a request from advisors, peasants, allies, or enemies, and you swipe left or right to decide. Your choices must keep balance between the church, the people, the army, and the treasury. Decisions carry long-term consequences that can end your reign and threaten your dynasty.
+"Sit on the throne as a benevolent (or malevolent) medieval monarch of the modern age."
+
+Reigns is a swipe-driven monarchy sim built around constant decisions. Each card presents a request from advisors, peasants, allies, or enemies, and you swipe left or right (your “royal controller”) to impose your will. You face a seemingly never-ending gauntlet of requests while balancing the church, the people, the army, and the treasury. Every choice has consequences that can end a reign and put your dynasty at risk.
+
+- An Unpredictable Kingdom: Each year brings another important, seemingly random request. Careful planning helps, but surprise events, hidden motives, and bad luck can end even a long reign.
+- Dynasty Expansion: Extend your dynasty across ages, forge alliances, make enemies, and discover new ways to die. Some events span centuries, with intrigue that can involve witches, science, politics, and darker forces.
+- Royal Challenges: Pursue goals at the start of a reign to cement your legacy and unlock new cards and content.
+- Eclectic Presentation: A score by Disasterpeace complements elegant gameplay and bold art direction.
 
 ## Features
 - Full keyboard control for gameplay, menus, dialogs, narrative screens, and death screens.

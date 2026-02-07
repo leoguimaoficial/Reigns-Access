@@ -20,9 +20,7 @@ namespace ReignsAccess.Core
         private static float _lastLanguageCheck = 0f;
         private static string _lastDetectedGameLanguage = "";
 
-        // Languages bundled with the mod (PT and EN)
-        // Community can add more by creating JSON files: es.json, fr.json, de.json, etc.
-        private static readonly string[] BundledLanguages = { "pt", "en" };
+        private const string EmbeddedLanguageResourcePrefix = "ReignsAccess.Lang.";
         
         /// <summary>
         /// Current language code (pt, en, es, etc.)
@@ -517,14 +515,75 @@ namespace ReignsAccess.Core
 
         private static void CreateDefaultLanguageFiles()
         {
-            // Create Portuguese file if it doesn't exist
-            CreateLanguageFile("pt", GetPortugueseJson());
-            
-            // Create English file if it doesn't exist
-            CreateLanguageFile("en", GetEnglishJson());
-            
-            // Create template file for community translations
-            CreateLanguageFile("_template", GetTemplateJson());
+            // Prefer language JSONs bundled as embedded resources.
+            // This lets "DLL-only" installs still recreate all languages automatically.
+            bool extractedFromResources = CreateLanguageFilesFromEmbeddedResources();
+
+            if (!extractedFromResources)
+            {
+                // Fallback for older builds without embedded resources.
+                CreateLanguageFile("pt", GetPortugueseJson());
+                CreateLanguageFile("en", GetEnglishJson());
+            }
+        }
+
+        private static bool CreateLanguageFilesFromEmbeddedResources()
+        {
+            try
+            {
+                var assembly = Assembly.GetExecutingAssembly();
+                string[] resourceNames = assembly.GetManifestResourceNames();
+                bool extractedAny = false;
+
+                foreach (string resourceName in resourceNames)
+                {
+                    if (!resourceName.StartsWith(EmbeddedLanguageResourcePrefix, StringComparison.OrdinalIgnoreCase) ||
+                        !resourceName.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    string fileName = resourceName.Substring(EmbeddedLanguageResourcePrefix.Length);
+                    if (fileName.Equals("template.json", StringComparison.OrdinalIgnoreCase) ||
+                        fileName.Equals("_template.json", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    string filePath = Path.Combine(_langFolder, fileName);
+                    if (File.Exists(filePath))
+                    {
+                        continue;
+                    }
+
+                    using (Stream stream = assembly.GetManifestResourceStream(resourceName))
+                    {
+                        if (stream == null)
+                        {
+                            continue;
+                        }
+
+                        using (var reader = new StreamReader(stream))
+                        {
+                            string json = reader.ReadToEnd();
+                            if (string.IsNullOrWhiteSpace(json))
+                            {
+                                continue;
+                            }
+
+                            File.WriteAllText(filePath, json);
+                            extractedAny = true;
+                        }
+                    }
+                }
+
+                return extractedAny;
+            }
+            catch (Exception ex)
+            {
+                Plugin.Logger.LogError($"[Localization] Error extracting embedded language files: {ex.Message}");
+                return false;
+            }
         }
 
         private static void CreateLanguageFile(string langCode, string json)

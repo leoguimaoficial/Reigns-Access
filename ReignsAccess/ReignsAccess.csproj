@@ -16,6 +16,13 @@
     <BepInExPath>$(ReignsPath)\BepInEx</BepInExPath>
   </PropertyGroup>
 
+  <!-- Embed bundled languages so the DLL can recreate them on first run -->
+  <ItemGroup>
+    <EmbeddedResource Include="Lang\*.json" Exclude="Lang\template.json;Lang\_template.json">
+      <LogicalName>ReignsAccess.Lang.%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
   <ItemGroup>
     <!-- BepInEx from game folder -->
     <Reference Include="BepInEx">
@@ -73,7 +80,7 @@
     
     <!-- Copy language files -->
     <ItemGroup>
-      <LangFiles Include="Lang\*.json" />
+      <LangFiles Include="Lang\*.json" Exclude="Lang\template.json;Lang\_template.json" />
     </ItemGroup>
     <Copy SourceFiles="@(LangFiles)" DestinationFolder="$(BepInExPath)\plugins\ReignsAccess_Lang\" />
     <Message Text="Copied language files to $(BepInExPath)\plugins\ReignsAccess_Lang\" Importance="high" />

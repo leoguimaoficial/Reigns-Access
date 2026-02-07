@@ -197,9 +197,9 @@ namespace ReignsAccess.Navigation.Screens
             else if (_currentIndex == ITEM_ADVANCE)
             {
                 announcement = Localization.Get("advance_button");
-                if (string.IsNullOrEmpty(announcement))
+                if (string.IsNullOrEmpty(announcement) || announcement == "advance_button")
                 {
-                    announcement = "Avançar";
+                    announcement = "Advance";
                 }
             }
 
@@ -530,7 +530,7 @@ namespace ReignsAccess.Navigation.Screens
         private static void ReadHelp()
         {
             string help = Localization.Get("narrative_help");
-            if (string.IsNullOrEmpty(help))
+            if (string.IsNullOrEmpty(help) || help == "narrative_help")
             {
                 help = "Narrative screen. R to read text. Enter or Space to advance.";
             }

@@ -43,7 +43,7 @@ namespace ReignsAccess.GameData
             if (!string.IsNullOrEmpty(question))
             {
                 if (!string.IsNullOrEmpty(announcement))
-                    announcement += " diz: ";
+                    announcement += Localization.Get("character_says");
                 announcement += question;
             }
 
@@ -448,7 +448,7 @@ namespace ReignsAccess.GameData
 
         /// <summary>
         /// Gets which stats will be affected by a card swipe.
-        /// Returns a string like "Afeta: Igreja ↑, Povo ↓" or empty if no changes.
+        /// Returns a string like "Affected: Church ↑, People ↓" or empty if no changes.
         /// Reads the REAL change value from DataAnim.addReal (not the UI display).
         /// </summary>
         public static string GetStatChanges(string direction)
@@ -505,7 +505,13 @@ namespace ReignsAccess.GameData
                 }
             }
 
-            return affected.Count > 0 ? "Afeta: " + string.Join(", ", affected) : "";
+            string affectedPrefix = Localization.Get("affected_prefix");
+            if (string.IsNullOrEmpty(affectedPrefix) || affectedPrefix == "affected_prefix")
+            {
+                affectedPrefix = "Affected: ";
+            }
+
+            return affected.Count > 0 ? affectedPrefix + string.Join(", ", affected) : "";
         }
 
         private static string CleanRichText(string text)

@@ -79,6 +79,7 @@
   "yes_default": "Yes",
   "no_default": "No",
   "no_stats_affected": "No stats will be affected",
+  "affected_prefix": "Affected: ",
   "stat_not_available": " not available",
   "stats_not_available": "Stats not available",
   "stat_church": "Church",

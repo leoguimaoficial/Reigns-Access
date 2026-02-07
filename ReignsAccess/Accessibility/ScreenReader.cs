@@ -212,8 +212,20 @@ namespace ReignsAccess.Accessibility
             // Add button options
             if (buttonLabels.Count > 0)
             {
-                dialogParts.Add("Opções: " + string.Join(", ", buttonLabels));
-                dialogParts.Add("Use setas para navegar e Enter para selecionar");
+                string optionsLabel = Core.Localization.Get("options_dialog");
+                if (string.IsNullOrEmpty(optionsLabel) || optionsLabel == "options_dialog")
+                {
+                    optionsLabel = "Options: ";
+                }
+
+                string navHint = Core.Localization.Get("use_arrows_hint");
+                if (string.IsNullOrEmpty(navHint) || navHint == "use_arrows_hint")
+                {
+                    navHint = "Use arrows to navigate and Enter to select";
+                }
+
+                dialogParts.Add(optionsLabel + string.Join(", ", buttonLabels));
+                dialogParts.Add(navHint);
             }
             
             // Announce if we have content

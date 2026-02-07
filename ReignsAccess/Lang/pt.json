@@ -79,6 +79,7 @@
   "yes_default": "Sim",
   "no_default": "Não",
   "no_stats_affected": "Nenhuma estatística será afetada",
+  "affected_prefix": "Afeta: ",
   "stat_not_available": " não disponível",
   "stats_not_available": "Estatísticas não disponíveis",
   "stat_church": "Igreja",
@@ -117,6 +118,7 @@
   "nickname_prefix": "Apelido: ",
   "completed": "Completado",
   "not_completed": "Não completado",
+  "closing_screen": "Fechando",
   
   "advance_button": "Avançar",
   "narrative_help": "Tela de narrativa. Setas cima e baixo para navegar. Enter ou Espaço para avançar."

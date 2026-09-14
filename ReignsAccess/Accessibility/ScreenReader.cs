@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 using ReignsAccess.Navigation.Screens;
+using ReignsAccess.Navigation.Menus;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -69,9 +70,14 @@ namespace ReignsAccess.Accessibility
             _hasAnnouncedScene = false;
             
             // Just announce scene name, not full scan
-            if (scene.name == "reigns_pc")
+            if (scene.name.StartsWith("reigns_", StringComparison.OrdinalIgnoreCase))
             {
                 TolkWrapper.Speak(Core.Localization.Get("game_loaded"));
+            }
+            else if (string.Equals(scene.name, "disclaimer", StringComparison.OrdinalIgnoreCase))
+            {
+                // DisclaimerScreenNavigator announces useful content and the
+                // start command after DisclaimerAct enables its Canvas.
             }
             else
             {
@@ -151,6 +157,14 @@ namespace ReignsAccess.Accessibility
         {
             // Small delay to let dialog fully render
             yield return new WaitForSeconds(0.1f);
+
+            // Confirmation dialogs have their own keyboard navigator, which
+            // announces the question, choices and focus. Avoid speaking the
+            // same dialog a second time from the generic screen scanner.
+            if (QuitDialogNavigator.IsActive())
+            {
+                yield break;
+            }
             
             var dialogParts = new List<string>();
             
@@ -282,6 +296,9 @@ namespace ReignsAccess.Accessibility
         {
             if (_instance != null)
             {
+                // A manual command is also a repeat command; never suppress it
+                // merely because the visible text has not changed.
+                _instance._lastAnnouncedText = "";
                 _instance.ScanAndAnnounceScreen("Manual scan");
             }
         }
@@ -349,6 +366,7 @@ namespace ReignsAccess.Accessibility
                 if (allTexts.Count > 0)
                 {
                     string announcement = string.Join(". ", allTexts);
+                    Plugin.Logger.LogInfo($"[ScreenScan] {source}: {announcement}");
                     
                     // Only announce if different from last
                     if (announcement != _lastAnnouncedText)
@@ -359,7 +377,7 @@ namespace ReignsAccess.Accessibility
                 }
                 else
                 {
-                    
+                    Plugin.Logger.LogInfo($"[ScreenScan] {source}: no visible text found");
                 }
             }
             catch (Exception ex)

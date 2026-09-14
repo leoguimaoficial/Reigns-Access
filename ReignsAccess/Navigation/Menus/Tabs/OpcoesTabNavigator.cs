@@ -40,8 +40,11 @@ namespace ReignsAccess.Navigation.Menus.Tabs
             // 4. Social link button
             AddButtonItem(panel, "link1", Localization.Get("opt_more_reigns"), items, addedObjects);
 
-            // 5. Main exit button
-            AddQuitButton(panel, items, addedObjects);
+            // 5. The asset named "quit" only closes the options panel.
+            AddReturnToGameButton(panel, items, addedObjects);
+
+            // 6. Real desktop exit, using the game's save + confirmation flow.
+            AddQuitGameAction(items);
 
             return items;
         }
@@ -359,7 +362,7 @@ namespace ReignsAccess.Navigation.Menus.Tabs
             }
         }
 
-        private static void AddQuitButton(GameObject panel, List<MenuItem> items, HashSet<int> added)
+        private static void AddReturnToGameButton(GameObject panel, List<MenuItem> items, HashSet<int> added)
         {
             var quitBtn = FindButtonByName(panel, "quit");
             if (quitBtn != null && quitBtn.gameObject.activeInHierarchy && !added.Contains(quitBtn.GetInstanceID()))
@@ -367,12 +370,41 @@ namespace ReignsAccess.Navigation.Menus.Tabs
                 added.Add(quitBtn.GetInstanceID());
                 items.Add(new MenuItem
                 {
-                    Label = Localization.Get("exit_button"),
-                    Category = "Button",
-                    ButtonRef = quitBtn,
+                    Label = Localization.Get("return_to_game"),
+                    Category = "Action",
+                    ActionRef = PauseMenuNavigator.CloseMenu,
                     GameObj = quitBtn.gameObject
                 });
             }
+        }
+
+        private static void AddQuitGameAction(List<MenuItem> items)
+        {
+            items.Add(new MenuItem
+            {
+                Label = Localization.Get("quit_game"),
+                Category = "Action",
+                ActionRef = RequestQuitGame
+            });
+        }
+
+        private static void RequestQuitGame()
+        {
+            var input = InputAct.diff;
+            if (input == null)
+            {
+                input = UnityEngine.Object.FindObjectOfType<InputAct>();
+            }
+
+            if (input == null)
+            {
+                Plugin.Logger.LogWarning("[Menu] InputAct não encontrado; não foi possível abrir a confirmação de saída.");
+                ReignsAccess.Accessibility.TolkWrapper.Speak(Localization.Get("quit_game_unavailable"), interrupt: true);
+                return;
+            }
+
+            Plugin.Logger.LogInfo("[Menu] Abrindo a confirmação nativa para sair do jogo.");
+            input.QuitGame();
         }
     }
 }

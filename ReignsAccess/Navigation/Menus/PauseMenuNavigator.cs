@@ -221,6 +221,8 @@ namespace ReignsAccess.Navigation.Menus
         /// </summary>
         private static void OnMenuOpened()
         {
+            DisableNativeMenuSubmission();
+
             // Verificar se foi fechamento temporário (sub-menu) ou real
             float timeSinceClosed = Time.unscaledTime - _menuClosedTime;
             bool isReturningFromSubMenu = _wasInSubMenu && timeSinceClosed < 5f; // 5 segundos para navegar sub-menus
@@ -279,6 +281,8 @@ namespace ReignsAccess.Navigation.Menus
         /// </summary>
         private static void OnTabChanged(string oldPanel, string newPanel)
         {
+            DisableNativeMenuSubmission();
+
             _currentItemIndex = 0;
             _currentItems.Clear();
             BuildCurrentPanelItems();
@@ -330,8 +334,6 @@ namespace ReignsAccess.Navigation.Menus
             
             _menuWasClosedByUser = true;
             
-            var panelRef = _activePanel;
-            
             // Limpar estado do menu
             _isMenuActive = false;
             _activePanel = null;
@@ -342,33 +344,39 @@ namespace ReignsAccess.Navigation.Menus
             _wasInSubMenu = false;
             _indexBeforeSubMenu = -1;
             
-            // SEMPRE clicar no botão quit primeiro (garante fechamento correto)
-            var quitBtn = FindButtonByName(panelRef, "quit");
-            if (quitBtn != null && quitBtn.interactable)
+            // Use the game's central close path. It clears isInMenu, restores
+            // card input and closes every menu panel.
+            if (InputAct.diff != null)
             {
                 try
                 {
-                    quitBtn.onClick.Invoke();
-}
+                    InputAct.diff.DisableMenuNav();
+                }
                 catch (System.Exception ex)
                 {
-                    Plugin.Logger.LogError($"[Menu] Erro ao clicar quit: {ex.Message}");
+                    Plugin.Logger.LogError($"[Menu] Erro ao fechar menu: {ex.Message}");
                 }
             }
             else
             {
-                // Se não achou o botão quit, tentar desativar painel diretamente
-try
-                {
-                    panelRef.SetActive(false);
-}
-                catch (System.Exception ex)
-                {
-                    Plugin.Logger.LogError($"[Menu] Erro ao desativar painel: {ex.Message}");
-                }
+                Plugin.Logger.LogWarning("[Menu] InputAct indisponível ao fechar menu.");
             }
             
             TolkWrapper.Speak(Localization.Get("menu_closed"));
+        }
+
+        /// <summary>
+        /// The accessibility navigator owns keyboard input while a pause panel
+        /// is open. Disable Unity's parallel submit processing so one Enter does
+        /// not also activate a stale visually-selected control.
+        /// </summary>
+        private static void DisableNativeMenuSubmission()
+        {
+            if (EventSystem.current != null)
+            {
+                EventSystem.current.sendNavigationEvents = false;
+                EventSystem.current.SetSelectedGameObject(null);
+            }
         }
 
         /// <summary>
@@ -543,6 +551,18 @@ try
             {
                 item.ToggleRef.isOn = !item.ToggleRef.isOn;
                 TolkWrapper.Speak(item.ToggleRef.isOn ? Localization.Get("toggle_on").TrimStart(':').Trim() : Localization.Get("toggle_off").TrimStart(':').Trim());
+            }
+            else if (item.ActionRef != null)
+            {
+                try
+                {
+                    item.ActionRef();
+                }
+                catch (Exception ex)
+                {
+                    Plugin.Logger.LogError($"[Menu] Erro ao executar {item.Label}: {ex.Message}");
+                    TolkWrapper.Speak(Localization.Get("activation_error") + item.Label);
+                }
             }
             else if (item.ButtonRef != null)
             {

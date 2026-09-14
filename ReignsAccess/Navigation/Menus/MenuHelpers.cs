@@ -21,6 +21,7 @@ namespace ReignsAccess.Navigation.Menus
             public Toggle ToggleRef;
             public Dropdown DropdownRef;
             public Button ButtonRef;
+            public Action ActionRef;
             public GameObject GameObj;
         }
 

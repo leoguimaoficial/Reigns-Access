@@ -77,7 +77,7 @@ namespace ReignsAccess.Navigation.Screens
                 }
             }
             
-            // Adicionar botão SAIR
+            // Adicionar botão de retorno à aba Reino
             CollectExitButton();
         }
         
@@ -208,7 +208,7 @@ namespace ReignsAccess.Navigation.Screens
         {
             if (objectivesTransform == null) return;
             
-            // Procurar botão de sair
+            // Procurar o controle que volta à aba Reino
             var buttons = objectivesTransform.GetComponentsInChildren<Button>(true);
             
             foreach (var btn in buttons)
@@ -219,7 +219,7 @@ namespace ReignsAccess.Navigation.Screens
                 if (name.Contains("quit") || name.Contains("exit") || name.Contains("back") || name.Contains("close"))
                 {
                     exitButtons.Add(btn);
-                    texts.Add(Localization.Get("exit_button"));
+                    texts.Add(Localization.Get("back_to_kingdom"));
                     return;
                 }
                 
@@ -232,7 +232,7 @@ namespace ReignsAccess.Navigation.Screens
                         btnText == "VOLTAR" || btnText == "BACK" || btnText == "FECHAR" || btnText == "CLOSE")
                     {
                         exitButtons.Add(btn);
-                        texts.Add(Localization.Get("exit_button"));
+                        texts.Add(Localization.Get("back_to_kingdom"));
                         return;
                     }
                 }
@@ -243,10 +243,10 @@ namespace ReignsAccess.Navigation.Screens
         {
             if (texts.Count == 0) return;
             
-            // Se está no botão SAIR (último item)
+            // Se está no botão de retorno (último item)
             if (currentIndex == texts.Count - 1 && exitButtons.Count > 0)
             {
-                TolkWrapper.Speak(Localization.Get("exit_button") + Localization.Get("activated"));
+                TolkWrapper.Speak(Localization.Get("back_to_kingdom") + Localization.Get("activated"));
                 exitButtons[0].onClick.Invoke();
                 return;
             }

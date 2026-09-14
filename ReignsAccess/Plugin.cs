@@ -6,6 +6,7 @@ using ReignsAccess.Accessibility;
 using ReignsAccess.Navigation.Screens;
 using ReignsAccess.Patches;
 using ReignsAccess.Core;
+using System;
 
 namespace ReignsAccess
 {
@@ -30,22 +31,56 @@ namespace ReignsAccess
             Instance = this;
             Logger = base.Logger;
 
-            // Initialize Tolk for screen reader output
-            if (TolkWrapper.Initialize())
+            Logger.LogInfo($"Starting {PluginInfo.PLUGIN_NAME} {PluginInfo.PLUGIN_VERSION} on Unity {UnityEngine.Application.unityVersion}");
+
+            // Localization must remain available even when no screen reader is active.
+            try
             {
-                // Initialize localization system
                 Localization.Initialize();
                 _lastDetectedLanguage = Localization.CurrentLanguage;
-                TolkWrapper.Speak(Localization.Get("mod_loaded"));
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"Localization initialization failed: {ex}");
             }
 
-            // Create keyboard navigator
-            KeyboardNavigator.Create(gameObject);
+            // Initialize Tolk for screen reader output.
+            try
+            {
+                if (TolkWrapper.Initialize())
+                {
+                    Logger.LogInfo("Tolk screen reader bridge initialized");
+                    TolkWrapper.Speak(Localization.Get("mod_loaded"));
+                }
+                else
+                {
+                    Logger.LogWarning("Tolk did not find an active screen reader");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"Tolk initialization failed: {ex}");
+            }
 
-            // ButtonNavigator is static and doesn't need initialization
+            try
+            {
+                KeyboardNavigator.Create(gameObject);
+                Logger.LogInfo("Keyboard navigation initialized");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"Keyboard navigation initialization failed: {ex}");
+            }
 
-            // Create screen reader for automatic text announcements
-            ScreenReader.Create(gameObject);
+            try
+            {
+                ScreenReader.Create(gameObject);
+                Logger.LogInfo("Automatic screen reading initialized");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"Automatic screen reading initialization failed: {ex}");
+            }
 
             // Apply Harmony patches
             _harmony = new Harmony(PluginInfo.PLUGIN_GUID);
@@ -56,12 +91,14 @@ namespace ReignsAccess
                 
                 // Then apply Reigns-specific patches
                 ReignsPatches.Initialize(_harmony);
+                Logger.LogInfo("Harmony patches initialized");
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
-                Logger.LogError($"Error applying Harmony patches: {ex.Message}");
-                Logger.LogError(ex.StackTrace);
+                Logger.LogError($"Error applying Harmony patches: {ex}");
             }
+
+            Logger.LogInfo($"{PluginInfo.PLUGIN_NAME} initialization complete");
         }
 
         private void OnDestroy()
@@ -145,7 +182,7 @@ namespace ReignsAccess
     {
         public const string PLUGIN_GUID = "com.accessibility.reignsaccess";
         public const string PLUGIN_NAME = "Reigns Access";
-        public const string PLUGIN_VERSION = "1.0.0";
+        public const string PLUGIN_VERSION = "1.1";
     }
 }
 

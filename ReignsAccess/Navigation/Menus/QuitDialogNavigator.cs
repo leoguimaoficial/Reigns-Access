@@ -27,27 +27,38 @@ namespace ReignsAccess.Navigation.Menus
 
         private static void CheckForDialog()
         {
-            // Procurar por dialog(Clone) no Canvas
-            var canvas = GameObject.Find("Canvas");
-            if (canvas == null) return;
+            var dialog = FindActiveDialog();
+            if (dialog != null)
+            {
+                if (_dialogPanel == null || _dialogPanel != dialog)
+                {
+                    InitializeDialog(dialog);
+                }
+            }
+            else if (_isActive)
+            {
+                ClearDialog();
+            }
+        }
 
-            var dialogClone = canvas.transform.Find("dialog(Clone)");
-            if (dialogClone != null && dialogClone.gameObject.activeInHierarchy)
-            {
-                if (_dialogPanel == null || _dialogPanel != dialogClone.gameObject)
-                {
-                    InitializeDialog(dialogClone.gameObject);
-                }
-            }
-            else
-            {
-                if (_isActive)
-                {
-_isActive = false;
-                    _dialogPanel = null;
-                    _buttons.Clear();
-                }
-            }
+        private static GameObject FindActiveDialog()
+        {
+            // Search by component across every active Canvas. The startup scene
+            // stores its confirmation dialog under "Canvas (1)", while gameplay
+            // uses "Canvas"; relying on one root made startup quitting silent.
+            return UnityEngine.Object.FindObjectsOfType<DialogAct>()
+                .Where(candidate => candidate != null && candidate.gameObject.activeInHierarchy)
+                .Select(candidate => candidate.gameObject)
+                .FirstOrDefault();
+        }
+
+        private static void ClearDialog()
+        {
+            _isActive = false;
+            _dialogPanel = null;
+            _buttons.Clear();
+            _question = "";
+            _currentButtonIndex = 0;
         }
 
         private static void InitializeDialog(GameObject dialog)
@@ -58,7 +69,11 @@ _isActive = false;
 
             // Pegar a pergunta
             var questionText = dialog.transform.Find("question")?.GetComponent<Text>();
-            _question = questionText?.text ?? "Diálogo";
+            _question = MenuHelpers.CleanText(questionText?.text);
+            if (string.IsNullOrEmpty(_question))
+            {
+                _question = Localization.Get("dialog_default");
+            }
 
             // Buscar botões
             var quitBtn = dialog.transform.Find("quit")?.GetComponent<Button>();
@@ -68,12 +83,12 @@ _isActive = false;
             if (cancelBtn != null)
             {
                 _buttons.Add(cancelBtn);
-}
+            }
 
             if (quitBtn != null)
             {
                 _buttons.Add(quitBtn);
-}
+            }
 
             _isActive = _buttons.Count > 0;
 
@@ -87,7 +102,7 @@ _isActive = false;
         {
             var buttonNames = string.Join(", ", _buttons.Select(b => GetButtonText(b)));
             var message = _question + Localization.Get("buttons_prefix") + buttonNames + Localization.Get("dialog_nav_hint");
-TolkWrapper.Speak(message);
+            TolkWrapper.Speak(message, interrupt: true);
             
             // Anunciar botão atual
             AnnounceCurrentButton();
@@ -96,7 +111,8 @@ TolkWrapper.Speak(message);
         private static string GetButtonText(Button button)
         {
             var text = button.GetComponentInChildren<Text>();
-            return text?.text ?? button.gameObject.name;
+            var value = MenuHelpers.CleanText(text?.text);
+            return string.IsNullOrEmpty(value) ? button.gameObject.name : value;
         }
 
         private static void AnnounceCurrentButton()
@@ -105,7 +121,7 @@ TolkWrapper.Speak(message);
             {
                 var buttonText = GetButtonText(_buttons[_currentButtonIndex]);
                 var position = $"{_currentButtonIndex + 1}" + Localization.Get("position_of") + $"{_buttons.Count}";
-TolkWrapper.Speak($"{buttonText}. {position}");
+                TolkWrapper.Speak($"{buttonText}. {position}");
             }
         }
 
@@ -116,7 +132,7 @@ TolkWrapper.Speak($"{buttonText}. {position}");
             _currentButtonIndex--;
             if (_currentButtonIndex < 0)
                 _currentButtonIndex = _buttons.Count - 1;
-AnnounceCurrentButton();
+            AnnounceCurrentButton();
         }
 
         public static void NavigateRight()
@@ -126,7 +142,7 @@ AnnounceCurrentButton();
             _currentButtonIndex++;
             if (_currentButtonIndex >= _buttons.Count)
                 _currentButtonIndex = 0;
-AnnounceCurrentButton();
+            AnnounceCurrentButton();
         }
 
         public static void SelectCurrentButton()
@@ -136,7 +152,7 @@ AnnounceCurrentButton();
 
             var button = _buttons[_currentButtonIndex];
             var buttonText = GetButtonText(button);
-TolkWrapper.Speak(Localization.Get("selected_prefix") + buttonText);
+            TolkWrapper.Speak(Localization.Get("selected_prefix") + buttonText, interrupt: true);
 
             // Clicar no botão
             button.onClick.Invoke();

@@ -21,6 +21,8 @@ namespace ReignsAccess.Navigation.Screens
             if (initialized) return;
             
             // Registrar todos os navegadores de tela
+            navigators.Add(new DisclaimerScreenNavigator()); // Tela inicial antes do jogo
+
             // Sub-telas do menu Reino (devem ser verificadas primeiro!)
             navigators.Add(new MementoMoriNavigator());       // Memento Mori (galeria de mortes)
             navigators.Add(new ObjectivesScreenNavigator());  // Façanhas Reais
@@ -58,6 +60,7 @@ namespace ReignsAccess.Navigation.Screens
             // Mudou de tela?
             if (newActive != activeNavigator)
             {
+                activeNavigator?.Deactivate();
                 activeNavigator = newActive;
             }
             
@@ -103,6 +106,14 @@ namespace ReignsAccess.Navigation.Screens
         public static void RepeatCurrent()
         {
             activeNavigator?.RepeatCurrent();
+        }
+
+        /// <summary>
+        /// Ativa o item selecionado na tela especial atual.
+        /// </summary>
+        public static void ActivateCurrent()
+        {
+            activeNavigator?.ActivateCurrent();
         }
         
         /// <summary>

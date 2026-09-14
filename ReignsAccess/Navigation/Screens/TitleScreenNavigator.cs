@@ -52,11 +52,11 @@ namespace ReignsAccess.Navigation.Screens
         }
         
         /// <summary>
-        /// Ativa/confirma (não usado atualmente)
+        /// Ativa/confirma o item atual da tela especial.
         /// </summary>
         public static void Activate()
         {
-            // Não faz nada
+            ScreenManager.ActivateCurrent();
         }
         
         /// <summary>

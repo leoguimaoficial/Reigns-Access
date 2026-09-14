@@ -16,7 +16,7 @@ namespace ReignsAccess.Navigation.Screens
         private Transform deadkingTransform;
         private Button advanceButton;
         
-        public override string ScreenName => "King Death Screen";
+        public override string ScreenName => Localization.Get("death_screen");
         
         public override bool IsScreenActive()
         {
@@ -86,6 +86,11 @@ namespace ReignsAccess.Navigation.Screens
             
             string the = GetTextFromChild("the");
             string king = GetTextFromChild("king");
+            if (string.IsNullOrEmpty(king))
+            {
+                // The Japanese PC scene names this label king_old.
+                king = GetTextFromChild("king_old");
+            }
             string isdead = GetTextFromChild("isdead");
             
             // Montar o texto completo
@@ -186,7 +191,7 @@ namespace ReignsAccess.Navigation.Screens
             if (currentIndex >= 0 && currentIndex < texts.Count)
             {
                 string text = texts[currentIndex];
-                string announceWithPosition = $"{text}. {currentIndex + 1} {Localization.Get("position_of")} {texts.Count}";
+                string announceWithPosition = $"{text}. {currentIndex + 1}{Localization.Get("position_of")}{texts.Count}";
                 TolkWrapper.Speak(announceWithPosition);
             }
         }

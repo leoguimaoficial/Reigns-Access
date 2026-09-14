@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Reflection;
 using UnityEngine;
 using UnityEngine.UI;
 using ReignsAccess.Accessibility;
@@ -11,9 +14,20 @@ namespace ReignsAccess.Navigation.Screens
     /// </summary>
     public class ChronoScreenNavigator : ScreenNavigatorBase
     {
+        private const int DefaultTimelineStartYear = 603;
+        private const float MaximumCluePairDistance = 80f;
+
+        private sealed class TimelineClue
+        {
+            public int Year;
+            public string SymbolKey;
+            public bool KingFacesSymbol;
+        }
+
         private Transform chronoTransform;
         private float lastCollectTime = 0f;
         private int lastCollectedCount = 0;
+        private string lastNewKingAnnouncement = "";
         
         public override string ScreenName => Localization.Get("chrono_screen");
         
@@ -48,6 +62,14 @@ namespace ReignsAccess.Navigation.Screens
         public override void Update()
         {
             base.Update();
+
+            // The final succession title lives outside Canvas/chrono and only
+            // remains visible briefly. Watch it every frame so the screen reader
+            // does not miss "Long live" and the new monarch's name.
+            if (isActive)
+            {
+                AnnounceNewKingWhenShown();
+            }
             
             // Recoletar automaticamente a cada 1 segundo para pegar elementos que aparecem por animação
             if (isActive && Time.time - lastCollectTime > 1f)
@@ -74,11 +96,18 @@ namespace ReignsAccess.Navigation.Screens
             CollectTexts();
             lastCollectedCount = texts.Count;
             currentIndex = 0;
+            lastNewKingAnnouncement = GetNewKingAnnouncement();
             
             if (texts.Count > 0)
             {
                 AnnounceCurrentText();
             }
+        }
+
+        protected override void OnScreenExit()
+        {
+            base.OnScreenExit();
+            lastNewKingAnnouncement = "";
         }
         
         protected override void CollectTexts()
@@ -86,18 +115,135 @@ namespace ReignsAccess.Navigation.Screens
             texts.Clear();
             
             if (chronoTransform == null) return;
+
+            // This is Canvas/fond/newking, not a child of the chronology panel.
+            // It is the last title displayed before gameplay resumes.
+            CollectNewKingAnnouncement();
             
             // 1. Coletar o ano atual
             CollectYear();
+
+            // 2. Coletar as pistas visuais da cronologia, incluindo a orientação do rei
+            CollectTimelineClues();
             
-            // 2. Coletar reinados
+            // 3. Coletar reinados
             CollectReigns();
             
-            // 3. Coletar objetivos
+            // 4. Coletar objetivos
             CollectObjectives();
             
-            // 4. Adicionar ação NEXT
+            // 5. Adicionar ação NEXT
             CollectNextAction();
+        }
+
+        private void CollectNewKingAnnouncement()
+        {
+            string announcement = GetNewKingAnnouncement();
+            if (!string.IsNullOrEmpty(announcement))
+            {
+                AddText(announcement);
+            }
+        }
+
+        private string GetNewKingAnnouncement()
+        {
+            var canvas = GameObject.Find("Canvas");
+            var panel = canvas?.transform.Find("fond/newking");
+            if (panel == null || !panel.gameObject.activeInHierarchy)
+                return "";
+
+            var parts = new List<string>();
+            AddVisibleText(panel.Find("longlive"), parts);
+            AddVisibleText(panel.Find("king_young"), parts);
+
+            // king_young is only the localized word "King" in the current PC
+            // assets. The actual monarch name is stored in the final live
+            // ChronoReign (for example, "Jorge").
+            string currentKingName = GetCurrentKingName();
+            if (!string.IsNullOrEmpty(currentKingName) && !parts.Contains(currentKingName))
+                parts.Add(currentKingName);
+
+            // Asset variants can rename the king label. Fall back to every
+            // visible text under the panel without repeating the two known ones.
+            if (parts.Count < 2)
+            {
+                foreach (var text in panel.GetComponentsInChildren<Text>(true))
+                {
+                    if (!text.enabled || !text.gameObject.activeInHierarchy)
+                        continue;
+
+                    string value = CleanScreenText(text.text);
+                    if (!string.IsNullOrEmpty(value) && !parts.Contains(value))
+                        parts.Add(value);
+                }
+            }
+
+            return string.Join(" ", parts);
+        }
+
+        private string GetCurrentKingName()
+        {
+            var chronoAct = chronoTransform?.GetComponent<ChronoAct>()
+                ?? chronoTransform?.GetComponentInChildren<ChronoAct>(true);
+            if (chronoAct?.scReigns == null)
+                return "";
+
+            for (int i = chronoAct.scReigns.Count - 1; i >= 0; i--)
+            {
+                var reign = chronoAct.scReigns[i];
+                if (reign?.kingname == null)
+                    continue;
+
+                string value = CleanScreenText(reign.kingname.text);
+                if (!string.IsNullOrEmpty(value))
+                    return value;
+            }
+
+            return "";
+        }
+
+        private static void AddVisibleText(Transform item, List<string> parts)
+        {
+            if (item == null || !item.gameObject.activeInHierarchy)
+                return;
+
+            var text = item.GetComponent<Text>();
+            if (text == null || !text.enabled)
+                return;
+
+            string value = CleanScreenText(text.text);
+            if (!string.IsNullOrEmpty(value) && !parts.Contains(value))
+                parts.Add(value);
+        }
+
+        private static string CleanScreenText(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return "";
+            return System.Text.RegularExpressions.Regex
+                .Replace(value, "<[^>]*>", "")
+                .Replace("\r", " ")
+                .Replace("\n", " ")
+                .Trim();
+        }
+
+        private void AnnounceNewKingWhenShown()
+        {
+            string announcement = GetNewKingAnnouncement();
+            if (string.IsNullOrEmpty(announcement))
+            {
+                lastNewKingAnnouncement = "";
+                return;
+            }
+
+            if (announcement == lastNewKingAnnouncement)
+                return;
+
+            lastNewKingAnnouncement = announcement;
+            CollectTexts();
+            lastCollectedCount = texts.Count;
+            currentIndex = 0;
+            Plugin.Logger.LogInfo($"[ChronoScreen] New king title: {announcement}");
+            TolkWrapper.Speak(announcement, interrupt: true);
         }
         
         private void CollectYear()
@@ -114,6 +260,199 @@ namespace ReignsAccess.Navigation.Screens
             {
                 AddText(Localization.Get("year_prefix") + yearText.text);
             }
+        }
+
+        /// <summary>
+        /// Lê as pistas do caminho do Diabo que o jogo desenha na cronologia.
+        /// Cada pista tem um símbolo e uma silhueta do rei próxima. O sinal da
+        /// escala horizontal da silhueta indica para que lado o rei está olhando.
+        /// </summary>
+        private void CollectTimelineClues()
+        {
+            var scenes = chronoTransform.Find("scenes");
+            var devilPath = scenes?.Find("devilpath");
+            if (devilPath == null || !devilPath.gameObject.activeInHierarchy)
+                return;
+
+            var kings = new List<Transform>();
+            var symbols = new List<Transform>();
+            var symbolKeys = new Dictionary<Transform, string>();
+
+            for (int i = 0; i < devilPath.childCount; i++)
+            {
+                var child = devilPath.GetChild(i);
+                if (!IsVisibleTimelineGraphic(child))
+                    continue;
+
+                string objectName = NormalizeTimelineObjectName(child.name);
+                if (objectName == "perso")
+                {
+                    kings.Add(child);
+                    continue;
+                }
+
+                string symbolKey = GetTimelineSymbolKey(objectName);
+                if (symbolKey != null)
+                {
+                    symbols.Add(child);
+                    symbolKeys[child] = symbolKey;
+                }
+            }
+
+            var clues = new List<TimelineClue>();
+            var pairedKings = new HashSet<Transform>();
+            int startYear = GetTimelineStartYear();
+            int latestYear = GetLatestTimelineYear(startYear);
+
+            foreach (var symbol in symbols)
+            {
+                Transform nearestKing = null;
+                float nearestDistance = float.MaxValue;
+                float symbolX = GetTimelineX(symbol);
+
+                foreach (var king in kings)
+                {
+                    if (pairedKings.Contains(king))
+                        continue;
+
+                    float distance = Mathf.Abs(GetTimelineX(king) - symbolX);
+                    if (distance < nearestDistance)
+                    {
+                        nearestDistance = distance;
+                        nearestKing = king;
+                    }
+                }
+
+                if (nearestKing == null || nearestDistance > MaximumCluePairDistance)
+                    continue;
+
+                int clueYear = startYear + Mathf.RoundToInt(symbolX / 10f) - 1;
+                if (clueYear > latestYear)
+                    continue;
+
+                pairedKings.Add(nearestKing);
+                clues.Add(new TimelineClue
+                {
+                    Year = clueYear,
+                    SymbolKey = symbolKeys[symbol],
+                    KingFacesSymbol = IsKingFacingSymbol(nearestKing, symbol)
+                });
+            }
+
+            clues.Sort((left, right) => left.Year.CompareTo(right.Year));
+            foreach (var clue in clues)
+            {
+                string orientationKey = clue.KingFacesSymbol
+                    ? "king_facing_symbol"
+                    : "king_back_to_symbol";
+
+                AddText(Localization.Get(
+                    "timeline_clue",
+                    clue.Year,
+                    Localization.Get(clue.SymbolKey),
+                    Localization.Get(orientationKey)));
+            }
+        }
+
+        private static bool IsVisibleTimelineGraphic(Transform item)
+        {
+            if (item == null || !item.gameObject.activeInHierarchy)
+                return false;
+
+            var graphic = item.GetComponent<Graphic>();
+            return graphic == null || (graphic.enabled && graphic.color.a > 0.01f);
+        }
+
+        private static string NormalizeTimelineObjectName(string objectName)
+        {
+            if (string.IsNullOrEmpty(objectName))
+                return string.Empty;
+
+            int cloneSuffix = objectName.IndexOf('(');
+            if (cloneSuffix >= 0)
+                objectName = objectName.Substring(0, cloneSuffix);
+
+            return objectName.Trim().ToLowerInvariant();
+        }
+
+        private static string GetTimelineSymbolKey(string objectName)
+        {
+            switch (objectName)
+            {
+                case "feu":
+                    return "timeline_symbol_fire";
+                case "arsenic":
+                    return "timeline_symbol_arsenic";
+                case "acide":
+                    return "timeline_symbol_acid";
+                case "gold":
+                    return "timeline_symbol_gold";
+                case "notdevil":
+                case "devil":
+                    return "timeline_symbol_pentagram";
+                default:
+                    return null;
+            }
+        }
+
+        private int GetTimelineStartYear()
+        {
+            return GetChronoYearField("start", DefaultTimelineStartYear);
+        }
+
+        private int GetLatestTimelineYear(int startYear)
+        {
+            int displayedYear = GetDisplayedTimelineYear(startYear);
+            return GetChronoYearField("lastyear", displayedYear);
+        }
+
+        private int GetDisplayedTimelineYear(int fallback)
+        {
+            var yearText = chronoTransform
+                .Find("yearmask")?
+                .Find("year")?
+                .GetComponent<Text>();
+
+            int year;
+            return yearText != null && int.TryParse(yearText.text?.Trim(), out year)
+                ? year
+                : fallback;
+        }
+
+        private int GetChronoYearField(string fieldName, int fallback)
+        {
+            try
+            {
+                var chronoAct = chronoTransform.GetComponent<ChronoAct>()
+                    ?? chronoTransform.GetComponentInChildren<ChronoAct>(true);
+                var field = typeof(ChronoAct).GetField(
+                    fieldName,
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+                if (chronoAct != null && field != null)
+                    return (int)field.GetValue(chronoAct);
+            }
+            catch (Exception ex)
+            {
+                Plugin.Logger.LogWarning($"[ChronoScreen] Could not read {fieldName}: {ex.Message}");
+            }
+
+            return fallback;
+        }
+
+        private static float GetTimelineX(Transform item)
+        {
+            var rectTransform = item as RectTransform;
+            return rectTransform != null
+                ? rectTransform.anchoredPosition.x
+                : item.localPosition.x;
+        }
+
+        private static bool IsKingFacingSymbol(Transform king, Transform symbol)
+        {
+            bool kingFacesRight = king.localScale.x > 0f;
+            bool symbolIsToTheRight = GetTimelineX(symbol) > GetTimelineX(king);
+            return kingFacesRight == symbolIsToTheRight;
         }
         
         private void CollectReigns()
@@ -254,6 +593,47 @@ namespace ReignsAccess.Navigation.Screens
             if (txt != null && !string.IsNullOrEmpty(txt.text))
             {
                 AddText(txt.text.Trim());
+            }
+        }
+
+        protected override void ExecuteAction()
+        {
+            if (texts.Count == 0) return;
+
+            // Information entries are repeatable. Only the final action label
+            // advances the sequence.
+            if (currentIndex != texts.Count - 1)
+            {
+                AnnounceCurrentText();
+                return;
+            }
+
+            try
+            {
+                TolkWrapper.Speak(Localization.Get("advancing"), interrupt: true);
+
+                // Chronology/new-king screens are driven by InputAct callbacks,
+                // not by a Unity UI Button. TapAction invokes the action currently
+                // registered by ChronoAct (normally StartGame at the final stage).
+                if (InputAct.diff != null)
+                {
+                    Plugin.Logger.LogInfo("[ChronoScreen] Activating the current game action");
+                    InputAct.diff.TapAction();
+                    return;
+                }
+
+                var chronoAct = chronoTransform?.GetComponent<ChronoAct>()
+                    ?? chronoTransform?.GetComponentInChildren<ChronoAct>(true);
+                if (chronoAct != null)
+                {
+                    Plugin.Logger.LogWarning("[ChronoScreen] InputAct unavailable; using StartGame fallback");
+                    chronoAct.StartGame();
+                }
+            }
+            catch (Exception ex)
+            {
+                Plugin.Logger.LogError($"[ChronoScreen] Could not advance: {ex}");
+                TolkWrapper.Speak(Localization.Get("action_failed"), interrupt: true);
             }
         }
         

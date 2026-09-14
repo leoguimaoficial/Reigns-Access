@@ -96,20 +96,20 @@ namespace ReignsAccess.Navigation.Screens
         
         public void NavigateUp()
         {
-            if (currentIndex > 0)
-            {
-                currentIndex--;
-                AnnounceCurrentText();
-            }
+            if (texts.Count == 0) return;
+
+            currentIndex--;
+            if (currentIndex < 0) currentIndex = texts.Count - 1;
+            AnnounceCurrentText();
         }
         
         public void NavigateDown()
         {
-            if (currentIndex < texts.Count - 1)
-            {
-                currentIndex++;
-                AnnounceCurrentText();
-            }
+            if (texts.Count == 0) return;
+
+            currentIndex++;
+            if (currentIndex >= texts.Count) currentIndex = 0;
+            AnnounceCurrentText();
         }
         
         public void NavigateToStart()
@@ -135,6 +135,16 @@ namespace ReignsAccess.Navigation.Screens
             
             TolkWrapper.Speak(Core.Localization.Get("advancing"));
             SimulateActionClick();
+        }
+
+        /// <summary>
+        /// Ativa o item atual. Mantém ExecuteAction protegido para que cada tela
+        /// possa definir sua própria ação sem expor detalhes ao gerenciador.
+        /// </summary>
+        public void ActivateCurrent()
+        {
+            if (!isActive) return;
+            ExecuteAction();
         }
         
         protected void SimulateActionClick()
@@ -173,6 +183,21 @@ namespace ReignsAccess.Navigation.Screens
         public bool IsActive => isActive;
         public int ItemCount => texts.Count;
         public int CurrentIndex => currentIndex;
+
+        /// <summary>
+        /// Resets this navigator when ScreenManager moves to another screen.
+        /// Without this, a navigator that becomes inactive is no longer updated
+        /// and can retain stale state if the same scene is opened again.
+        /// </summary>
+        public void Deactivate()
+        {
+            if (isActive || wasActive)
+            {
+                OnScreenExit();
+            }
+
+            wasActive = false;
+        }
         
         protected string GetText(Transform parent, string childName)
         {

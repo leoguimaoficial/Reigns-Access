@@ -1,10 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.EventSystems;
 using ReignsAccess.Accessibility;
-using ReignsAccess.Navigation.Screens;
 
 namespace ReignsAccess.Navigation.Menus
 {
@@ -17,6 +16,7 @@ namespace ReignsAccess.Navigation.Menus
         private static bool _isDialogOpen = false;
         private static List<Button> _dialogButtons = new List<Button>();
         private static int _currentButtonIndex = 0;
+        private static ModalAct _activeModal;
 
         // Dialog button texts in all supported languages
         // These are used to detect if a dialog is open
@@ -62,17 +62,22 @@ namespace ReignsAccess.Navigation.Menus
             if (PauseMenuNavigator.IsPauseMenuVisible())
                 return false;
             
-            // If title screen is active, it's not a dialog
-            if (TitleScreenNavigator.IsSpecialScreenActive())
-                return false;
-
             // Look for a modal/dialog panel specifically
             var canvas = GameObject.Find("Canvas");
             if (canvas == null) return false;
             
-            // Check for modal transform which contains dialogs
-            var modal = canvas.transform.Find("modal");
+            var modal = FindModalContainer(canvas.transform);
             if (modal == null || !modal.gameObject.activeInHierarchy) return false;
+
+            _activeModal = modal.GetComponentsInChildren<ModalAct>(true)
+                .FirstOrDefault(candidate => candidate != null && candidate.gameObject.activeInHierarchy);
+
+            // Current Reigns notifications are ModalAct instances and may have no
+            // labelled button at all. Treat the active instance as accessible UI.
+            if (_activeModal != null)
+            {
+                return true;
+            }
             
             // Check if modal has active children with dialog buttons
             var buttons = modal.GetComponentsInChildren<Button>(true);
@@ -98,6 +103,12 @@ namespace ReignsAccess.Navigation.Menus
             return false;
         }
 
+        private static Transform FindModalContainer(Transform canvas)
+        {
+            // Unity 6 uses "modals". Keep the singular name for older builds.
+            return canvas.Find("modals") ?? canvas.Find("modal");
+        }
+
         /// <summary>
         /// Refreshes the list of dialog buttons.
         /// </summary>
@@ -106,25 +117,24 @@ namespace ReignsAccess.Navigation.Menus
             _dialogButtons.Clear();
             _currentButtonIndex = 0;
             
-            // Search for modal in canvas
             var canvas = GameObject.Find("Canvas");
             if (canvas == null) return;
             
-            var modal = canvas.transform.Find("modal");
+            var modal = FindModalContainer(canvas.transform);
             if (modal == null) return;
 
-            var addedTexts = new HashSet<string>();
+            // ModalAct pop-ups are notifications, not choice dialogs. Their
+            // supported action is ModalAct.Close(), even if the prefab exposes
+            // an unlabeled backdrop Button internally.
+            if (_activeModal != null) return;
+
+            var addedButtons = new HashSet<int>();
             var childButtons = modal.GetComponentsInChildren<Button>(true);
             
             foreach (var btn in childButtons)
             {
                 if (!btn.gameObject.activeInHierarchy || !btn.interactable) continue;
-                var textComp = btn.GetComponentInChildren<Text>();
-                if (textComp == null) continue;
-                string text = textComp.text.Trim();
-                if (string.IsNullOrEmpty(text)) continue;
-                if (addedTexts.Contains(text.ToUpper())) continue;
-                addedTexts.Add(text.ToUpper());
+                if (!addedButtons.Add(btn.GetInstanceID())) continue;
                 _dialogButtons.Add(btn);
             }
 
@@ -151,6 +161,7 @@ namespace ReignsAccess.Navigation.Menus
         {
             _isDialogOpen = false;
             _dialogButtons.Clear();
+            _activeModal = null;
         }
 
         /// <summary>
@@ -175,29 +186,28 @@ namespace ReignsAccess.Navigation.Menus
         /// </summary>
         public static void AnnounceDialog()
         {
-            // Find dialog text
-            string dialogText = FindDialogText();
+            var dialogTexts = FindDialogTexts();
             
             // Build button list
             var buttonNames = new List<string>();
             foreach (var btn in _dialogButtons)
             {
-                var textComp = btn.GetComponentInChildren<Text>();
-                if (textComp != null)
-                {
-                    buttonNames.Add(textComp.text.Trim());
-                }
+                buttonNames.Add(GetButtonText(btn));
             }
 
             string announcement = Core.Localization.Get("dialog_default");
-            if (!string.IsNullOrEmpty(dialogText))
+            if (dialogTexts.Count > 0)
             {
-                announcement = dialogText;
+                announcement = string.Join(". ", dialogTexts);
             }
 
             if (buttonNames.Count > 0)
             {
                 announcement += Core.Localization.Get("buttons_prefix") + string.Join(", ", buttonNames) + Core.Localization.Get("nav_hint");
+            }
+            else if (_activeModal != null)
+            {
+                announcement += Core.Localization.Get("modal_nav_hint");
             }
 
             TolkWrapper.Speak(announcement);
@@ -212,18 +222,20 @@ namespace ReignsAccess.Navigation.Menus
         /// <summary>
         /// Finds the main dialog text (not button text).
         /// </summary>
-        private static string FindDialogText()
+        private static List<string> FindDialogTexts()
         {
-            var texts = UnityEngine.Object.FindObjectsOfType<Text>();
-            string bestText = "";
-            float largestSize = 0;
+            var result = new List<string>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var canvas = GameObject.Find("Canvas");
+            var modal = canvas == null ? null : FindModalContainer(canvas.transform);
+            if (modal == null) return result;
 
-            foreach (var t in texts)
+            foreach (var t in modal.GetComponentsInChildren<Text>(true))
             {
                 if (!t.gameObject.activeInHierarchy) continue;
 
-                string text = t.text.Trim();
-                if (string.IsNullOrEmpty(text) || text.Length < 5) continue;
+                string text = MenuHelpers.CleanText(t.text);
+                if (string.IsNullOrEmpty(text)) continue;
 
                 // Skip if it's a button text
                 bool isButtonText = false;
@@ -237,21 +249,29 @@ namespace ReignsAccess.Navigation.Menus
                 }
                 if (isButtonText) continue;
 
-                // Skip known UI elements
-                string objName = t.gameObject.name.ToLower();
-                if (objName.Contains("label") || objName.Contains("button")) continue;
-
-                // Prefer larger text (likely the dialog message)
-                if (t.fontSize > largestSize)
-                {
-                    largestSize = t.fontSize;
-                    bestText = text;
-                }
+                if (IsButtonTextComponent(t)) continue;
+                if (seen.Add(text)) result.Add(text);
             }
 
-            // Clean HTML tags
-            bestText = System.Text.RegularExpressions.Regex.Replace(bestText, "<[^>]+>", "");
-            return bestText.Trim();
+            return result;
+        }
+
+        private static bool IsButtonTextComponent(Text text)
+        {
+            var current = text.transform;
+            while (current != null)
+            {
+                if (current.GetComponent<Button>() != null) return true;
+                current = current.parent;
+            }
+            return false;
+        }
+
+        private static string GetButtonText(Button button)
+        {
+            var textComp = button.GetComponentInChildren<Text>();
+            var text = MenuHelpers.CleanText(textComp?.text);
+            return string.IsNullOrEmpty(text) ? Core.Localization.Get("continue_button") : text;
         }
 
         /// <summary>
@@ -281,23 +301,39 @@ namespace ReignsAccess.Navigation.Menus
         /// </summary>
         public static void Activate()
         {
-            if (!_isDialogOpen || _dialogButtons.Count == 0) return;
+            if (!_isDialogOpen) return;
+
+            if (_dialogButtons.Count == 0)
+            {
+                if (_activeModal != null)
+                {
+                    TolkWrapper.Speak(Core.Localization.Get("advancing"));
+                    _activeModal.Close();
+                }
+                return;
+            }
+
             if (_currentButtonIndex >= _dialogButtons.Count) return;
 
             var btn = _dialogButtons[_currentButtonIndex];
-            var textComp = btn.GetComponentInChildren<Text>();
-            string btnText = textComp != null ? textComp.text : "botão";
+            string btnText = GetButtonText(btn);
 
             try
             {
-                var pointer = new PointerEventData(EventSystem.current);
-                ExecuteEvents.Execute(btn.gameObject, pointer, ExecuteEvents.pointerClickHandler);
                 btn.onClick.Invoke();
                 TolkWrapper.Speak(btnText + Core.Localization.Get("activated"));
-}
+            }
             catch (Exception ex)
             {
                 Plugin.Logger.LogError($"[Dialog] Button click error: {ex.Message}");
+            }
+        }
+
+        public static void Repeat()
+        {
+            if (_isDialogOpen)
+            {
+                AnnounceDialog();
             }
         }
 
@@ -309,8 +345,7 @@ namespace ReignsAccess.Navigation.Menus
             if (_dialogButtons.Count == 0 || _currentButtonIndex >= _dialogButtons.Count) return;
 
             var btn = _dialogButtons[_currentButtonIndex];
-            var textComp = btn.GetComponentInChildren<Text>();
-            string btnText = textComp != null ? textComp.text : Core.Localization.Get("button_fallback");
+            string btnText = GetButtonText(btn);
 
             TolkWrapper.Speak($"{btnText}, {_currentButtonIndex + 1}{Core.Localization.Get("position_of")}{_dialogButtons.Count}");
         }

@@ -1,10 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net46</TargetFramework>
+    <!-- Reigns' Unity 6 assemblies target the .NET Standard 2.1 API profile. -->
+    <TargetFramework>netstandard2.1</TargetFramework>
     <AssemblyName>ReignsAccess</AssemblyName>
     <Description>Accessibility mod for Reigns using screen readers</Description>
-    <Version>1.0.0</Version>
+    <Version>1.1</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
@@ -39,7 +40,6 @@
       <HintPath>$(ReignsManagedPath)\Assembly-CSharp.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    
     <!-- Unity assemblies from game -->
     <Reference Include="UnityEngine">
       <HintPath>$(ReignsManagedPath)\UnityEngine.dll</HintPath>
@@ -53,8 +53,9 @@
       <HintPath>$(ReignsManagedPath)\UnityEngine.IMGUIModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <Reference Include="UnityEngine.InputModule">
-      <HintPath>$(ReignsManagedPath)\UnityEngine.InputModule.dll</HintPath>
+    <!-- Unity 6 exposes the legacy UnityEngine.Input API from this module. -->
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>$(ReignsManagedPath)\UnityEngine.InputLegacyModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="UnityEngine.UI">
@@ -74,7 +75,7 @@
   </ItemGroup>
 
   <!-- Auto-copy to game plugins folder after build -->
-  <Target Name="CopyToPlugins" AfterTargets="Build">
+  <Target Name="CopyToPlugins" AfterTargets="Build" Condition="'$(DeployToGame)' != 'false'">
     <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(BepInExPath)\plugins\" />
     <Message Text="Copied $(TargetFileName) to $(BepInExPath)\plugins\" Importance="high" />
     

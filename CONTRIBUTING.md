@@ -43,3 +43,14 @@ Include:
 - Keep PRs focused.
 - Describe behavior changes and add test notes.
 - For translations, add only the new JSON file.
+
+## Building a release
+The accessible installer and release packaging scripts are documented in [`installer/README.md`](installer/README.md). With the .NET 8 SDK and a working local Reigns installation, run:
+
+```powershell
+.\installer\build-release.ps1 -Version 1.1
+```
+
+Before building, update [`CHANGELOG.md`](CHANGELOG.md) with the mod version, release date, and exact tested Steam build ID from `steamapps/appmanifest_474750.acf`.
+
+Upload all generated files from `release/assets/` to the matching GitHub release. The local `release/` directory is ignored by Git, so generated binaries are attached under the release's **Assets** section rather than committed to the source tree. Existing installer copies will discover the new version automatically.

@@ -6,6 +6,7 @@ using ReignsAccess.Navigation.Screens;
 using ReignsAccess.Accessibility;
 using ReignsAccess.Core;
 using ReignsAccess.GameData;
+using System;
 
 namespace ReignsAccess.Input
 {
@@ -20,6 +21,7 @@ namespace ReignsAccess.Input
         
         private float _lastEscapeTime = 0f;
         private const float ESCAPE_COOLDOWN = 0.3f; // 300ms para ESC/P - evita loops
+        private bool _hasLoggedUpdateFailure;
 
         public static void Create(GameObject parent)
         {
@@ -41,6 +43,32 @@ namespace ReignsAccess.Input
 
         private void Update()
         {
+            try
+            {
+                UpdateNavigation();
+                _hasLoggedUpdateFailure = false;
+            }
+            catch (Exception ex)
+            {
+                // Unity invokes Update every frame. Log only once until an update succeeds
+                // so a compatibility problem does not create thousands of duplicate lines.
+                if (!_hasLoggedUpdateFailure)
+                {
+                    _hasLoggedUpdateFailure = true;
+                    Plugin.Logger.LogError($"Keyboard navigation update failed: {ex}");
+                }
+            }
+        }
+
+        private void UpdateNavigation()
+        {
+            // F6 is a global safety net for newly-added or otherwise unmapped UI.
+            if (UnityEngine.Input.GetKeyDown(KeyCode.F6))
+            {
+                ScreenReader.ScanScreen();
+                return;
+            }
+
             // F5 para recarregar mod completo (útil após mudança de idioma)
             if (UnityEngine.Input.GetKeyDown(KeyCode.F5))
             {
@@ -77,7 +105,8 @@ namespace ReignsAccess.Input
             PauseMenuNavigator.Update();
 
             // Route input based on context
-            // PRIORIDADE CORRETA: QuitDialog > Menu Principal > TitleScreen > DeathScreen > Narrative > Dialog > Gameplay
+            // Pop-ups are top-level overlays and must take priority over the screen beneath them.
+            // PRIORIDADE: QuitDialog > Menu Principal > Modal > TitleScreen > DeathScreen > Narrative > Gameplay
             if (QuitDialogNavigator.IsActive())
             {
                 HandleQuitDialogInput();
@@ -86,6 +115,10 @@ namespace ReignsAccess.Input
             {
                 // Menu principal está aberto - ESC/Backspace aqui fecha completamente
                 HandleMenuInput();
+            }
+            else if (DialogNavigator.IsDialogOpen)
+            {
+                HandleDialogInput();
             }
             else if (TitleScreenNavigator.IsSpecialScreenActive())
             {
@@ -108,10 +141,6 @@ namespace ReignsAccess.Input
                 UnityEngine.Input.ResetInputAxes();
                 
                 return; // Não processar mais nada
-            }
-            else if (DialogNavigator.IsDialogOpen)
-            {
-                HandleDialogInput();
             }
             else if (IsInGameplay())
             {
@@ -195,6 +224,10 @@ namespace ReignsAccess.Input
             {
                 DialogNavigator.Activate();
             }
+            else if (UnityEngine.Input.GetKeyDown(KeyCode.R) && CheckCooldown())
+            {
+                DialogNavigator.Repeat();
+            }
         }
 
         private void HandleMenuInput()
@@ -242,12 +275,15 @@ namespace ReignsAccess.Input
 
         private void HandleTitleScreenInput()
         {
-            // Navegação APENAS por setas VERTICAIS nas telas especiais
-            if (UnityEngine.Input.GetKeyDown(KeyCode.DownArrow) && CheckCooldown())
+            // Special screens are linear lists. Accept both vertical arrows and
+            // the horizontal arrows players naturally use on Reigns' timeline.
+            if ((UnityEngine.Input.GetKeyDown(KeyCode.DownArrow) ||
+                 UnityEngine.Input.GetKeyDown(KeyCode.RightArrow)) && CheckCooldown())
             {
                 TitleScreenNavigator.NavigateDown();
             }
-            else if (UnityEngine.Input.GetKeyDown(KeyCode.UpArrow) && CheckCooldown())
+            else if ((UnityEngine.Input.GetKeyDown(KeyCode.UpArrow) ||
+                      UnityEngine.Input.GetKeyDown(KeyCode.LeftArrow)) && CheckCooldown())
             {
                 TitleScreenNavigator.NavigateUp();
             }
